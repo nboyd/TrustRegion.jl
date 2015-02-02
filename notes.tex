@@ -1,0 +1,62 @@
+\documentclass[10pt]{article}
+\usepackage{geometry,amsmath} 
+\geometry{margin=1in}
+
+ \begin{document}
+\title{Low-rank hessian approximations and trust-region methods} 
+\author{}
+\date{}
+\maketitle
+
+\section{Trust-region methods}
+Trust-region methods, as outlined in \cite[p.66]{nw}, are a simple class of optimization methods that repeatedly minimize quadratic approximations to a function subject to a constraint that the next iterate remains within some specified distance of the last iterate. In short, at iteration $k$, a trust region method takes a step like 
+
+$$\delta_{k} = \arg\min_{\|\delta\| \le r_k} \left<g_k,\delta \right> + \frac{1}{2}\left<\delta, Q_k\delta\right>.$$ 
+
+For more detail, see \cite[p.66]{nw}.
+
+\section{Solving the trust-region subproblem}
+As outlined in \cite[Theorem 4.1]{nw}, $\delta_*$ is a solution to the above optimization problem if and only if we can find a scalar $\lambda \ge 0$ such that the following three conditions are satisfied:
+\begin{align*}
+(Q_k + \lambda I)\delta_* &= -g_k, \\
+\lambda(r_k - \|\delta_* \|) &= 0, \\
+(Q_k + \lambda I) &\succeq 0.
+\end{align*}
+
+One (perhaps inefficient) way to find such a $\lambda$ uses the eigenvalue decomposition of $Q_k = UEU^{T}$. Rewriting the above in the basis described by $U$ we then need to find $\lambda \ge 0$ s.t. 
+\begin{align*}
+(E + \lambda I)(U^T\delta_*) &= -U^Tg_k, \\
+\lambda(r_k - \|U^T \delta_* \|) &= 0, \\
+E_i + \lambda  &\ge 0 \quad \forall i.
+\end{align*}
+
+If we define the scalar valued function $$f(\lambda) = \sqrt{\sum_i \frac{(U^Tg_k)_i^2}{(E_i + \lambda)^2}},$$
+our problem becomes more clear: either we need to find the smallest $\lambda \in [\lambda_{\textrm{min}}(Q_k)_+, \infty)$ such that $f(\lambda) \le r_k$. As $f$ is monotone decreasing in this range (check!) we can use, for instance, the bisection method with lower bound as above and the upper bound $$\frac{\sqrt{\sum_i \frac{(U^Tg_k)_i^2}{E_i ^2}}}{r_k} - \lambda_{\textrm{min}}(Q_k)_+.$$
+
+Caching $U^Tg_k$ makes this more efficient...
+(This should be more clear...)
+\section{Low-rank hessian approximations}
+Most limited-memory quasi-newton methods maintain an approximation to the hessian of a function of the form 
+
+$$ \hat{H} = \gamma I + LDL^{T}.$$
+
+Here $D$ is a diagonal matrix\footnote{$D$ is only necessary if we want the low-rank part of the approximation to be anything but positive semi-definite, w.l.o.g. $D_i \in \{+1,-1\}$.} and $L$ is a $d$ by $k$ matrix, where $k << d$, the dimension of the decision variable.
+
+Suppose we wanted to solve the trust-region subproblem using the method described above. For problems in high dimensions, it would be essentially impossible to form the dense matrix $\hat{H}$ and take its eigendecomposition. Luckily, we don't have to: the eigenvectors and values of $\hat{H}$ can easily be computed from the eigendecomposition of much smaller $k$ by $k$ matrices. 
+
+Defining $K = L^TL$, let $(E,U)$ be the eigendecomposition of $K^{1/2}DK^{1/2}$. Then the nonzero eigenvalues of $LDL^T$ are given by $E$ and the nonzero eigenvectors are $LK^{-1/2}U$.
+
+Perhaps there is a better way to do this, but it doesn't really matter as $k$ by $k$ operations are essentially free.
+
+\end{document}
+
+\begin{thebibliography}{9}
+
+\bibitem{nw}
+  J. Nocedal and S. J. Wright,
+  \emph{Numerical Optimization}.
+  Springer, New York,
+  2nd edition,
+  2006.
+
+\end{thebibliography}
