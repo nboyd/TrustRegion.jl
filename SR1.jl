@@ -1,5 +1,7 @@
-### SR1
-immutable SR1State
+include("common_types.jl")
+
+### LMSR1
+immutable LMSR1State <: LowRankApproximation
   old_dirs :: Vector{Vector{Float64}}
   old_stps :: Vector{Vector{Float64}}
   Hdiag :: Float64
@@ -8,19 +10,19 @@ immutable SR1State
   m :: Int64
 end
 
-SR1State(d :: Int64, m :: Int64) = SR1State(Array(Vector{Float64},0),Array(Vector{Float64},0),1.0,
+LMSR1State(d :: Int64, m :: Int64) = LMSR1State(Array(Vector{Float64},0),Array(Vector{Float64},0),1.0,
  zeros(d,0),zeros(0),m)
 
-function applyQF(state :: SR1State, x :: Vector{Float64}, v:: Vector{Float64})
+function applyQF(state :: LMSR1State, x :: Vector{Float64}, v:: Vector{Float64})
   return (0.5)*dot(x, state.Hdiag * v + state.L*diagm(state.D)*(state.L'*v))
 end
 
-function getDecomposition(state:: SR1State)
+function getDecomposition(state:: LMSR1State)
   return (state.Hdiag,state.L,state.D)
 end
 
 
-function update(delta_x, delta_g, state :: SR1State)
+function update(delta_x, delta_g, state :: LMSR1State)
   local y = delta_g #g_proposal - g
   local s = delta_x
   local ys = dot(y,s)
@@ -65,9 +67,41 @@ function update(delta_x, delta_g, state :: SR1State)
       D[i] = 1.0/rho_i
       L[:,i] = l_i
     end
-    return SR1State(old_dirs, old_stps, Hdiag, L,D,state.m)
+    return LMSR1State(old_dirs, old_stps, Hdiag, L,D,state.m)
   else
     verbose("Not updating memory! $LHS < $RHS")
+    return state
+  end
+end
+
+
+### SR1
+immutable SR1State <: FullRankApproximation
+  M :: Matrix{Float64}
+end
+
+SR1State(d :: Int64) = SR1State(eye(d))
+
+function applyQF(state :: SR1State, x :: Vector{Float64}, v:: Vector{Float64})
+  return (0.5)*dot(x, state.M*x)
+end
+
+getMatrix(s::SR1State)  = s.M
+
+
+function update(delta_x, delta_g, state :: SR1State)
+  local y = delta_g #g_proposal - g
+  local s = delta_x
+  local ys = dot(y,s)
+  local Bs = state.M*s
+  local LHS = abs(ys - dot(s,Bs))
+  local RHS = norm(y - Bs)*norm(s)
+  if  LHS > 1E-8*RHS #this always happens.
+    v = y - Bs
+    inv_scale = ys - dot(s,Bs)
+    return SR1State(state.M + v*(v./inv_scale)') #should do symmetric rank-1 update...
+  else
+    verbose("Not updating hessian! $LHS < $RHS")
     return state
   end
 end

@@ -1,7 +1,16 @@
 include("SR1.jl")
 
 
-function SFNSubproblem(g, lambda, L, D, verbose)
+function sfnSubproblem(qn_state :: FullRankApproximation,g, verbose)
+  M = getMatrix(qn_state)
+  (e,evs) = eig(M)
+  return evs*((1.0./abs(e)).*(evs'*g))
+end
+
+
+
+function sfnSubproblem(qn_state :: LowRankApproximation,g, verbose)
+  (lambda, L, D) = getDecomposition(qn_state)
   (d,k) = size(L)
   assert(length(g) == d)
   if (k >= d)
@@ -40,25 +49,23 @@ function SFNSubproblem(g, lambda, L, D, verbose)
 
   L_part = -evs'*g
   null_part = -g + evs*(evs'*g)
-  return evs*(diagm(1.0./abs(e)))*L_part + (1.0/abs(lambda))*null_part
+  return evs*((1.0./abs(e)).*L_part) + (1.0/abs(lambda))*null_part
 end
 
 ####
 # This function combines the quasi-newton method SR1 with Bengio's SFN.
 # The implementation is inefficient.
 # Based on torch implementation of LBFGS
-function sfn(opfunc!, x_init, maxIter;
+function sfn(opfunc!, x_init, maxIter, lm_state :: HessianApproximation;
   eta :: Float64 = 1E-5,
   verbose_output :: Bool = true,
-  callback :: Function = (x,iter) -> return,
-  m :: Int64 = 10)
+  callback :: Function = (x,iter) -> return)
 
   local x = copy(x_init)
   local g = zeros(x)
   local f_val = opfunc!(x,g)
   local f_hist = {f_val}
   local d = length(g)
-  lm_state = SR1State(d,m)
 
   local g_proposal = copy(g)
   local f_proposal = zero(f_val)
@@ -72,9 +79,9 @@ function sfn(opfunc!, x_init, maxIter;
   for nIter = 1:maxIter
     verbose("$nIter : obj_val=$f_val")
     #get new search direction
-    verbose("Hdiag = $(lm_state.Hdiag)")
-    (h_d,lm_L,lm_D) = getDecomposition(lm_state)
-    delta_x = SFNSubproblem(g, h_d, lm_L,lm_D,verbose)
+    #verbose("Hdiag = $(lm_state.Hdiag)")
+    #(h_d,lm_L,lm_D) = getDecomposition(lm_state)
+    delta_x = sfnSubproblem(lm_state, g,verbose)
     new_x  = x + delta_x
     f_proposal = opfunc!(new_x,g_proposal)
     if norm(g_proposal) < 1E-8

@@ -18,7 +18,8 @@ end
 
 #solves
 #argmin_p <g,p> + (1/2)p^T(M)*p s.t. ||p|| <= delta
-function trustRegionSubproblem(g, M,delta)
+function trustRegionSubproblem(qn_state :: FullRankApproximation,g,delta, verbose)
+  M = getMatrix(qn_state)
   if (delta <= 0.0)
     error("Need a positive trust-radius!")
   end
@@ -35,7 +36,7 @@ function trustRegionSubproblem(g, M,delta)
 
   #first, check if hess is psd and gamma = 0 works...
   if (l_min >= 0.0 && p(0.0) <= delta)
-    println("LMTR :: Hessian PSD and trust region inactive.")
+    verbose("LMTR :: Hessian PSD and trust region inactive.")
     return evs*( diagm(1.0./e))*L_part
   end
 
@@ -53,7 +54,9 @@ end
 
 #solves
 # argmin_p <g,p> + (1/2)p^T(lambda*I + L*diagm(D)*L')*p s.t. ||p|| <= delta
-function lowRankTrustRegionSubproblem(g, lambda, L, D,delta, verbose)
+function trustRegionSubproblem(lm_state :: LowRankApproximation,g,delta, verbose)
+  #lambda, L, D,delta
+  (lambda,L,D) = getDecomposition(lm_state)
   (d,k) = size(L)
   assert(length(g) == d)
   if (k >= d)
@@ -160,19 +163,17 @@ end
 # This function combines the quasi-newton method SR1 with a basic trust region method.
 # The implementation is inefficient.
 # Based on torch implementation of LBFGS
-function lmtr(opfunc!, x_init, maxIter;
+function lmtr(opfunc!, x_init, maxIter, lm_state :: HessianApproximation;
   delta :: Float64 = 1.0,
   eta :: Float64 = 1E-5,
   verbose_output :: Bool = true,
-  callback :: Function = (x,iter) -> return,
-  m :: Int64 = 10)
+  callback :: Function = (x,iter) -> return)
 
   local x = copy(x_init)
   local g = zeros(x)
   local f_val = opfunc!(x,g)
   local f_hist = {f_val}
   local d = length(g)
-  lm_state = SR1State(d,m)
 
   local g_proposal = copy(g)
   local f_proposal = zero(f_val)
@@ -187,9 +188,8 @@ function lmtr(opfunc!, x_init, maxIter;
     verbose("$nIter : obj_val=$f_val  radius = $delta")
     #get new search direction
     delta_this_round = delta
-    verbose("delta = $delta_this_round, Hdiag = $(lm_state.Hdiag)")
-    (h_d,lm_L,lm_D) = getDecomposition(lm_state)
-    @time delta_x = lowRankTrustRegionSubproblem(g, h_d, lm_L,lm_D, delta_this_round,verbose)
+    #verbose("delta = $delta_this_round, Hdiag = $(lm_state.Hdiag)")
+    @time delta_x = trustRegionSubproblem(lm_state, g,delta_this_round,verbose)
     new_x  = x + delta_x
     f_proposal = opfunc!(new_x,g_proposal)
     if norm(g_proposal) < 1E-8
