@@ -1,4 +1,4 @@
-require("SR1.jl")
+include("SR1.jl")
 
 
 function SFNSubproblem(g, lambda, L, D, verbose)
@@ -58,7 +58,7 @@ function sfn(opfunc!, x_init, maxIter;
   local f_val = opfunc!(x,g)
   local f_hist = {f_val}
   local d = length(g)
-  lm_state = SR1State(d)
+  lm_state = SR1State(d,m)
 
   local g_proposal = copy(g)
   local f_proposal = zero(f_val)
@@ -83,7 +83,7 @@ function sfn(opfunc!, x_init, maxIter;
     #-- update memory
     #-- we should factor this out...
     delta_g = g_proposal - g
-    lm_state = update(delta_x,delta_g,m,lm_state)
+    lm_state = update(delta_x,delta_g,lm_state)
 
     #add a line search here...
     x = x + delta_x

@@ -31,12 +31,12 @@ E_i + \lambda  &\ge 0 \quad \forall i.
 \end{align*}
 
 If we define the scalar valued function $$f(\lambda) = \sqrt{\sum_i \frac{(U^Tg_k)_i^2}{(E_i + \lambda)^2}},$$
-our problem becomes more clear: either we need to find the smallest $\lambda \in [\lambda_{\textrm{min}}(Q_k)_+, \infty)$ such that $f(\lambda) \le r_k$. As $f$ is monotone decreasing in this range (check!) we can use, for instance, the bisection method with lower bound as above and the upper bound $$\frac{\sqrt{\sum_i \frac{(U^Tg_k)_i^2}{E_i ^2}}}{r_k} - \lambda_{\textrm{min}}(Q_k)_+.$$
+our problem becomes more clear: we need to find the smallest $\lambda \in [\lambda_{\textrm{min}}(Q_k)_+, \infty)$ such that $f(\lambda) \le r_k$. As $f$ is monotone decreasing in this range (check!) we can use, for instance, the bisection method with lower bound as above and the upper bound $$\frac{\sqrt{\sum_i \frac{(U^Tg_k)_i^2}{E_i ^2}}}{r_k} - \lambda_{\textrm{min}}(Q_k)_+.$$
 
 Caching $U^Tg_k$ makes this more efficient...
 (This should be more clear...)
 \section{Low-rank hessian approximations}
-Most limited-memory quasi-newton methods maintain an approximation to the hessian of a function of the form 
+Most limited-memory quasi-newton methods maintain an approximation to the hessian of the form 
 
 $$ \hat{H} = \gamma I + LDL^{T}.$$
 
@@ -48,7 +48,6 @@ Defining $K = L^TL$, let $(E,U)$ be the eigendecomposition of $K^{1/2}DK^{1/2}$.
 
 Perhaps there is a better way to do this, but it doesn't really matter as $k$ by $k$ operations are essentially free.
 
-\end{document}
 
 \begin{thebibliography}{9}
 
@@ -60,3 +59,6 @@ Perhaps there is a better way to do this, but it doesn't really matter as $k$ by
   2006.
 
 \end{thebibliography}
+
+\end{document}
+

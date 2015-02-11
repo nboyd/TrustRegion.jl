@@ -1,4 +1,4 @@
-require("SR1.jl")
+include("SR1.jl")
 
 function bisection(f, l,u; iters = 1000, tol = 1E-5)
   for i = 1:iters
@@ -76,7 +76,7 @@ function lowRankTrustRegionSubproblem(g, lambda, L, D,delta, verbose)
 
     K_sqrt = u_k*diagm(sqrt(e_k))*u_k'
     K_inv_sqrt = u_k*diagm(1.0./sqrt(e_k))*u_k'
-    (e,u) = eig(Symmetric(K_inv_sqrt*K*diagm(D)*K*K_inv_sqrt,'u'))
+    (e,u) = eig(Symmetric(K_sqrt*diagm(D)*K_sqrt,'u'))
 
     nonzero_inds = abs(e).>1E-8
     if (length(nonzero_inds) .!= size(K,1))
@@ -84,7 +84,7 @@ function lowRankTrustRegionSubproblem(g, lambda, L, D,delta, verbose)
     end
     e = e[nonzero_inds] + lambda
     u = u[:,nonzero_inds]
-    evs = L*K_inv_sqrt*u
+    evs = L*(K_inv_sqrt*u)
     #e holds the eigenvalues of L*D*L'
     l_min = min(lambda, minimum(e))
   else
@@ -108,7 +108,7 @@ function lowRankTrustRegionSubproblem(g, lambda, L, D,delta, verbose)
   #first, check if hess is psd and gamma = 0 works...
   if (l_min >= 0.0 && p(0.0) <= delta)
     verbose("Trust region inactive and hessian PSD.")
-    return evs*(diagm(1.0./e))*L_part + (1.0/lambda)*null_part
+    return evs*(diagm(1.0./e)*L_part) + (1.0/lambda)*null_part
   end
 
   verbose("Minimum eigenvalue: $l_min")
@@ -120,8 +120,8 @@ function lowRankTrustRegionSubproblem(g, lambda, L, D,delta, verbose)
   #bisection search to find gamma....
   gamma = bisection(gamma -> p(gamma) - delta,abs(min(0.0,l_min)),ub)
 
-  d = evs*( diagm(1.0./(e + gamma)))*L_part + (1.0/(lambda + gamma))*null_part
-  obj_val = dot(g,d) +0.5*dot(d,lambda*d + L*diagm(D)*(L'*d))
+  d = evs*( diagm(1.0./(e + gamma))*L_part) + (1.0/(lambda + gamma))*null_part
+  obj_val = dot(g,d) +0.5*dot(d,lambda*d + L*(diagm(D)*(L'*d)))
   if (obj_val > 0.0)
     error("Did not achieve reduction!")
   end
@@ -172,7 +172,7 @@ function lmtr(opfunc!, x_init, maxIter;
   local f_val = opfunc!(x,g)
   local f_hist = {f_val}
   local d = length(g)
-  lm_state = SR1State(d)
+  lm_state = SR1State(d,m)
 
   local g_proposal = copy(g)
   local f_proposal = zero(f_val)
@@ -189,7 +189,7 @@ function lmtr(opfunc!, x_init, maxIter;
     delta_this_round = delta
     verbose("delta = $delta_this_round, Hdiag = $(lm_state.Hdiag)")
     (h_d,lm_L,lm_D) = getDecomposition(lm_state)
-    delta_x = lowRankTrustRegionSubproblem(g, h_d, lm_L,lm_D, delta_this_round,verbose)
+    @time delta_x = lowRankTrustRegionSubproblem(g, h_d, lm_L,lm_D, delta_this_round,verbose)
     new_x  = x + delta_x
     f_proposal = opfunc!(new_x,g_proposal)
     if norm(g_proposal) < 1E-8
@@ -214,7 +214,7 @@ function lmtr(opfunc!, x_init, maxIter;
     #-- update memory
     #-- we should factor this out...
     delta_g = g_proposal - g
-    lm_state = update(delta_x,delta_g,m,lm_state)
+    @time lm_state = update(delta_x,delta_g,lm_state)
 
     #-- initial guess for step size
     # * learningRate # check this later...
